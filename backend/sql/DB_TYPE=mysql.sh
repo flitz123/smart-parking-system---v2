@@ -1,0 +1,7 @@
+DB_TYPE=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=user
+DB_PASSWORD=password123
+DB_NAME=smart_parking
+PORT=5000

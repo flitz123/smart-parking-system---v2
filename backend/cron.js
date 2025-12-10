@@ -8,21 +8,24 @@ if (!admin.apps.length) {
 }
 const firestore = admin.firestore();
 
-// run every 5 minutes
 cron.schedule('*/5 * * * *', async () => {
   try {
-    const [rows] = await db.query("SELECT id FROM slots WHERE status='reserved' AND reserved_until < NOW()");
-    if (rows.length > 0) {
-      const ids = rows.map(r => r.id);
-      await db.query("UPDATE slots SET status='empty', reserved_by=NULL, reserved_until=NULL, plate=NULL, phone=NULL WHERE status='reserved' AND reserved_until < NOW()");
-      for (const id of ids) {
+    const now = new Date();
+    const [rows] = await db.query("SELECT id, reserved_until FROM slots WHERE status='reserved'");
+    const expiredIds = rows.filter(r => new Date(r.reserved_until) < now).map(r => r.id);
+    
+    if (expiredIds.length > 0) {
+      await db.query(
+        "UPDATE slots SET status='empty', reserved_by=NULL, reserved_until=NULL, plate=NULL, phone=NULL WHERE id IN (" + expiredIds.join(',') + ")"
+      );
+      for (const id of expiredIds) {
         await firestore.collection('slots').doc(String(id)).update({
           status: 'empty',
           reserved_by: admin.firestore.FieldValue.delete(),
           reserved_until: admin.firestore.FieldValue.delete()
         });
       }
-      console.log(`Released ${ids.length} expired reservations`);
+      console.log(`Released ${expiredIds.length} expired reservations`);
     }
   } catch (err) {
     console.error('Cron error', err);
